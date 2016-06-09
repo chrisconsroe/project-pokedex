@@ -137,15 +137,8 @@ function getInputId() {
 function evolutionChainLink(evolutionChainArray, storageArray) {
 	if (evolutionChainArray.length > 0) {
 		// loop through evolutionchain contents
-		if (evolutionChainArray.length > 1) {
-			for (var i = 0; i < evolutionChainArray.length; i++) {
-				storageArray.push(evolutionChainArray[i].species.url);
-				return evolutionChainLink(evolutionChainArray[i].evolves_to, storageArray);
-			}
-		} else {
-			storageArray.push(evolutionChainArray[0].species.url);
-			return evolutionChainLink(evolutionChainArray[0].evolves_to, storageArray);
-		}
+		storageArray.push(evolutionChainArray[0].species.url);
+		return evolutionChainLink(evolutionChainArray[0].evolves_to, storageArray);
 	}
 	return storageArray;
 }
