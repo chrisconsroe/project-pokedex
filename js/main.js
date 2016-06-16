@@ -39,6 +39,7 @@ var errorCard =
 			<div class="type-container">\n\
 			</div>\n\
 		</div>';
+
 ////////////////////////////////////// ASYNCHRONOUS API CALL FUNCTIONS ////////////////////////////////////////
 // KICKOFF API CALL — runs inputID for intial card and kicks off evolution details
 function getPokemonApiData(pokemonId) {
@@ -73,7 +74,6 @@ function getPokemonSpeciesEndpoint(pokemonId) {
 		})
 		.fail(function() {
 			$('.pokemon-display-container').html(errorCard);
-			console.error('the getPokemonSpeciesEndpoint API call failed.');
 		});
 	}
 
@@ -83,11 +83,11 @@ function getEvolutionChain(pokemonEvolutionApi) {
 	$.getJSON(pokemonEvolutionApi)
 	.done(function(data) {
 		// establish storage array of species URLs and evolution link
-		var evolutionUrlArray = [data.chain.species.url];
-		var evolutionLink = data.chain.evolves_to;
+		// var evolutionUrlArray = [data.chain.species.url];
+		var evolutionRootNode = data.chain;
 
 		// call recursive evolution link
-		var pokemonEvolutionFamily = evolutionChainLink(evolutionLink, evolutionUrlArray);
+		var pokemonEvolutionFamily = getAllEvolutions(evolutionRootNode);
 		var evolutionIds = getPokemonIds(pokemonEvolutionFamily);
 
 		replaceWithEvolution(evolutionIds);
@@ -142,6 +142,22 @@ function evolutionChainLink(evolutionChainArray, storageArray) {
 	}
 	return storageArray;
 }
+
+function getAllEvolutions(node) {
+	//establish array to be reutyred
+	var storageArray = [];
+	storageArray.push(node.species.url);
+
+	var evolutionNodes = node.evolves_to;
+
+	//loop through evolition array and call funciton recursively
+	for (var i = 0; i < evolutionNodes.length; i++) {
+		storageArray = storageArray.concat(getAllEvolutions(evolutionNodes[i]));
+	}
+
+	return storageArray;
+}
+
 
 function getPokemonIds(urlArray) {
 	// return urlArray.map(function splitAtSlash() {
