@@ -1,33 +1,37 @@
 // declaration of pokemon card component class
 class PokemonCard {
-	constructor(name, sprite) {
+	constructor(name, sprite, isInitialPokemon) {
 		this.name = name;
 		this.sprite = sprite;
+		this.isInitialPokemon = isInitialPokemon;
 	}
 
-	get card() {
+	get html() {
 		return this.buildCardHtml();
 	}
 
 	buildCardHtml() {
+		var pokemonCardClassList = 'pokemon-card';
+		if (!this.isInitialPokemon) {
+			pokemonCardClassList += ' evolution hidden';
+		}
+
 		var card =
-		'<div class="pokemon-card">\n\
+		'<div class="' + pokemonCardClassList + '">\n\
 			<img src=' + this.sprite + '>\n\
 			<p class="pokemon-name">' + this.name + '</p>\n\
-			<div class="type-container">\n\
-			</div>\n\
-		</div>';
+		</div>'
 		return card;
 	}
 
 	render() {
-		$('.pokemon-display-container').html(this.card);
+		$('.pokemon-display-container').html(this.html);
 	}
 
 	addClickFunction() {
 		$('.pokemon-card').click(function() {
-			$('.pokemon-card').toggle('hidden');
-			$('.evoution').toggle('hidden');
+			$('.evolution').toggle('hidden');
+			console.log('click listener on!');
 		})
 	}
 }
@@ -36,9 +40,14 @@ var errorCard =
 		'<div class="pokemon-card">\n\
 			<img src="./img/missingno.png">\n\
 			<p class="pokemon-name">Missingno</p>\n\
-			<div class="type-container">\n\
-			</div>\n\
 		</div>';
+
+// var pokemonCardList = [];
+
+// function renderPokemonCardList() {
+
+// }
+
 
 ////////////////////////////////////// ASYNCHRONOUS API CALL FUNCTIONS ////////////////////////////////////////
 // KICKOFF API CALL — runs inputID for intial card and kicks off evolution details
@@ -53,7 +62,7 @@ function getPokemonEndpoint(pokemonId) {
 
 	$.getJSON(pokemonEndpoint)
 	.done(function(data) {
-		var pokemonCardOne = new PokemonCard(data.name, data.sprites.front_default);
+		var pokemonCardOne = new PokemonCard(data.name, data.sprites.front_default, true);
  	 	pokemonCardOne.render();
  	 	pokemonCardOne.addClickFunction();
 	})
@@ -99,30 +108,30 @@ function getEvolutionChain(pokemonEvolutionApi) {
 }
 
 function replaceWithEvolution(arrayOfEvolutionIds) {
-	var evolutionFamilyContents = "";
+	var evolutionChainPromises = [];
+	var inputId = getInputId();
 
 	for (var i = 0; i < arrayOfEvolutionIds.length; i++) {
 		var pokemonEndpoint = 'http://pokeapi.co/api/v2/pokemon/' + arrayOfEvolutionIds[i];
-		var inputId = getInputId();
-
-		if (arrayOfEvolutionIds[i] !== inputId) {
-			$.getJSON(pokemonEndpoint)
-			.done(function(data) {
-		 	 	$('.pokemon-display-container').append(
-		 	 	'<div class="pokemon-card evolution hidden">\n\
-					<img src=' + data.sprites.front_default + '>\n\
-					<p class="pokemon-name">' + data.name + '</p>\n\
-					<div class="type-container">\n\
-					</div>\n\
-				</div>'
-		 	 	);
-			})
-			.fail(function() {
-		  		$('.pokemon-display-container').html(errorCard);
-				console.error('the replaceWithEvolution function failed.');
-		  	});
+		if (arrayOfEvolutionIds[i] != inputId) {
+			evolutionChainPromises[i] = $.getJSON(pokemonEndpoint);
+		} else {
+			evolutionChainPromises[i] = $.Deferred().resolve();
 		}
 	}
+
+	$.when.apply($, evolutionChainPromises)
+		.done(function() {
+			var args = Array.prototype.slice.call(arguments);
+			for (var i = 0; i < args.length; i++) {
+				if (args[i]) {
+					var data = args[i][0];
+					var pokemonCard = new PokemonCard(data.name, data.sprites.front_default, false);
+					$('.pokemon-display-container').append(pokemonCard.html);
+				}
+			}
+			console.log('ready to evolve');
+		});
 }
 
 ////////////////////////////////////// HELPER FUNCTIONS ////////////////////////////////////////
