@@ -1,9 +1,10 @@
 // declaration of pokemon card component class
 class PokemonCard {
-	constructor(name, sprite, isInitialPokemon) {
-		this.name = name;
-		this.sprite = sprite;
+	constructor(data, isInitialPokemon) {
+		this.name = data.name;
+		this.sprite = data.sprites.front_default;
 		this.isInitialPokemon = isInitialPokemon;
+		this.data = data;
 	}
 
 	get html() {
@@ -14,6 +15,8 @@ class PokemonCard {
 		var pokemonCardClassList = 'pokemon-card';
 		if (!this.isInitialPokemon) {
 			pokemonCardClassList += ' evolution hidden';
+		} else {
+			pokemonCardClassList += ' initial-card';
 		}
 
 		var card =
@@ -23,17 +26,6 @@ class PokemonCard {
 		</div>'
 		return card;
 	}
-
-	render() {
-		$('.pokemon-display-container').html(this.html);
-	}
-
-	addClickFunction() {
-		$('.pokemon-card').click(function() {
-			$('.evolution').toggle('hidden');
-			console.log('click listener on!');
-		})
-	}
 }
 
 var errorCard =
@@ -42,11 +34,17 @@ var errorCard =
 			<p class="pokemon-name">Missingno</p>\n\
 		</div>';
 
-// var pokemonCardList = [];
+var pokemonCardList = [];
 
-// function renderPokemonCardList() {
+function renderPokemonCardList(cardList) {
+	var pokemonCardsHtml = '';
 
-// }
+	for (var i = 0; i < cardList.length; i++) {
+		pokemonCardsHtml += cardList[i].html;
+	}
+
+	$('.pokemon-display-container').html(pokemonCardsHtml);
+}
 
 
 ////////////////////////////////////// ASYNCHRONOUS API CALL FUNCTIONS ////////////////////////////////////////
@@ -62,9 +60,9 @@ function getPokemonEndpoint(pokemonId) {
 
 	$.getJSON(pokemonEndpoint)
 	.done(function(data) {
-		var pokemonCardOne = new PokemonCard(data.name, data.sprites.front_default, true);
- 	 	pokemonCardOne.render();
- 	 	pokemonCardOne.addClickFunction();
+		var pokemonCardOne = new PokemonCard(data, true);
+ 	 	pokemonCardList = [pokemonCardOne];
+ 	 	renderPokemonCardList(pokemonCardList);
 	})
 	.fail(function() {
 		$('.pokemon-display-container').html(errorCard);
@@ -92,7 +90,6 @@ function getEvolutionChain(pokemonEvolutionApi) {
 	$.getJSON(pokemonEvolutionApi)
 	.done(function(data) {
 		// establish storage array of species URLs and evolution link
-		// var evolutionUrlArray = [data.chain.species.url];
 		var evolutionRootNode = data.chain;
 
 		// call recursive evolution link
@@ -122,15 +119,22 @@ function replaceWithEvolution(arrayOfEvolutionIds) {
 
 	$.when.apply($, evolutionChainPromises)
 		.done(function() {
+			var userInitalPokemonCard = pokemonCardList[0];
 			var args = Array.prototype.slice.call(arguments);
 			for (var i = 0; i < args.length; i++) {
 				if (args[i]) {
 					var data = args[i][0];
-					var pokemonCard = new PokemonCard(data.name, data.sprites.front_default, false);
-					$('.pokemon-display-container').append(pokemonCard.html);
+					var pokemonCard = new PokemonCard(data, false);
+					var evolutionIndex = arrayOfEvolutionIds.indexOf(data.id);
+					pokemonCardList[evolutionIndex] = pokemonCard;
 				}
 			}
-			console.log('ready to evolve');
+			var userInitialevolutionIndex = arrayOfEvolutionIds.indexOf(userInitalPokemonCard.data.id);
+			pokemonCardList[userInitialevolutionIndex] = userInitalPokemonCard;
+			renderPokemonCardList(pokemonCardList);
+			$('.initial-card').click(function() {
+				$('.evolution').toggle('hidden');
+			});
 		});
 }
 
