@@ -1,34 +1,30 @@
 // declaration of pokemon card component class
 class PokemonCard {
-	constructor(name, sprite) {
-		this.name = name;
-		this.sprite = sprite;
+	constructor(data, isInitialPokemon) {
+		this.name = data.name;
+		this.sprite = data.sprites.front_default;
+		this.isInitialPokemon = isInitialPokemon;
+		this.data = data;
 	}
 
-	get card() {
+	get html() {
 		return this.buildCardHtml();
 	}
 
 	buildCardHtml() {
+		var pokemonCardClassList = 'pokemon-card';
+		if (!this.isInitialPokemon) {
+			pokemonCardClassList += ' evolution hidden';
+		} else {
+			pokemonCardClassList += ' initial-card';
+		}
+
 		var card =
-		'<div class="pokemon-card">\n\
+		'<div class="' + pokemonCardClassList + '">\n\
 			<img src=' + this.sprite + '>\n\
 			<p class="pokemon-name">' + this.name + '</p>\n\
-			<div class="type-container">\n\
-			</div>\n\
-		</div>';
+		</div>'
 		return card;
-	}
-
-	render() {
-		$('.pokemon-display-container').html(this.card);
-	}
-
-	addClickFunction() {
-		$('.pokemon-card').click(function() {
-			$('.pokemon-card').toggle('hidden');
-			$('.evoution').toggle('hidden');
-		})
 	}
 }
 
@@ -36,9 +32,21 @@ var errorCard =
 		'<div class="pokemon-card">\n\
 			<img src="./img/missingno.png">\n\
 			<p class="pokemon-name">Missingno</p>\n\
-			<div class="type-container">\n\
-			</div>\n\
 		</div>';
+
+var pokemonCardList = [];
+
+function renderPokemonCardList(cardList) {
+	var pokemonCardsHtml = '';
+
+	for (var i = 0; i < cardList.length; i++) {
+		pokemonCardsHtml += cardList[i].html;
+	}
+
+	$('.pokemon-display-container').html(pokemonCardsHtml);
+}
+
+
 ////////////////////////////////////// ASYNCHRONOUS API CALL FUNCTIONS ////////////////////////////////////////
 // KICKOFF API CALL — runs inputID for intial card and kicks off evolution details
 function getPokemonApiData(pokemonId) {
@@ -52,9 +60,9 @@ function getPokemonEndpoint(pokemonId) {
 
 	$.getJSON(pokemonEndpoint)
 	.done(function(data) {
-		var pokemonCardOne = new PokemonCard(data.name, data.sprites.front_default);
- 	 	pokemonCardOne.render();
- 	 	pokemonCardOne.addClickFunction();
+		var pokemonCardOne = new PokemonCard(data, true);
+ 	 	pokemonCardList = [pokemonCardOne];
+ 	 	renderPokemonCardList(pokemonCardList);
 	})
 	.fail(function() {
 		$('.pokemon-display-container').html(errorCard);
@@ -73,7 +81,6 @@ function getPokemonSpeciesEndpoint(pokemonId) {
 		})
 		.fail(function() {
 			$('.pokemon-display-container').html(errorCard);
-			console.error('the getPokemonSpeciesEndpoint API call failed.');
 		});
 	}
 
@@ -83,11 +90,10 @@ function getEvolutionChain(pokemonEvolutionApi) {
 	$.getJSON(pokemonEvolutionApi)
 	.done(function(data) {
 		// establish storage array of species URLs and evolution link
-		var evolutionUrlArray = [data.chain.species.url];
-		var evolutionLink = data.chain.evolves_to;
+		var evolutionRootNode = data.chain;
 
 		// call recursive evolution link
-		var pokemonEvolutionFamily = evolutionChainLink(evolutionLink, evolutionUrlArray);
+		var pokemonEvolutionFamily = getAllEvolutions(evolutionRootNode);
 		var evolutionIds = getPokemonIds(pokemonEvolutionFamily);
 
 		replaceWithEvolution(evolutionIds);
@@ -99,30 +105,37 @@ function getEvolutionChain(pokemonEvolutionApi) {
 }
 
 function replaceWithEvolution(arrayOfEvolutionIds) {
-	var evolutionFamilyContents = "";
+	var evolutionChainPromises = [];
+	var inputId = getInputId();
 
 	for (var i = 0; i < arrayOfEvolutionIds.length; i++) {
 		var pokemonEndpoint = 'http://pokeapi.co/api/v2/pokemon/' + arrayOfEvolutionIds[i];
-		var inputId = getInputId();
-
-		if (arrayOfEvolutionIds[i] !== inputId) {
-			$.getJSON(pokemonEndpoint)
-			.done(function(data) {
-		 	 	$('.pokemon-display-container').append(
-		 	 	'<div class="pokemon-card evolution hidden">\n\
-					<img src=' + data.sprites.front_default + '>\n\
-					<p class="pokemon-name">' + data.name + '</p>\n\
-					<div class="type-container">\n\
-					</div>\n\
-				</div>'
-		 	 	);
-			})
-			.fail(function() {
-		  		$('.pokemon-display-container').html(errorCard);
-				console.error('the replaceWithEvolution function failed.');
-		  	});
+		if (arrayOfEvolutionIds[i] != inputId) {
+			evolutionChainPromises[i] = $.getJSON(pokemonEndpoint);
+		} else {
+			evolutionChainPromises[i] = $.Deferred().resolve();
 		}
 	}
+
+	$.when.apply($, evolutionChainPromises)
+		.done(function() {
+			var userInitalPokemonCard = pokemonCardList[0];
+			var args = Array.prototype.slice.call(arguments);
+			for (var i = 0; i < args.length; i++) {
+				if (args[i]) {
+					var data = args[i][0];
+					var pokemonCard = new PokemonCard(data, false);
+					var evolutionIndex = arrayOfEvolutionIds.indexOf(data.id);
+					pokemonCardList[evolutionIndex] = pokemonCard;
+				}
+			}
+			var userInitialevolutionIndex = arrayOfEvolutionIds.indexOf(userInitalPokemonCard.data.id);
+			pokemonCardList[userInitialevolutionIndex] = userInitalPokemonCard;
+			renderPokemonCardList(pokemonCardList);
+			$('.initial-card').click(function() {
+				$('.evolution').toggle('hidden');
+			});
+		});
 }
 
 ////////////////////////////////////// HELPER FUNCTIONS ////////////////////////////////////////
@@ -142,6 +155,22 @@ function evolutionChainLink(evolutionChainArray, storageArray) {
 	}
 	return storageArray;
 }
+
+function getAllEvolutions(node) {
+	//establish array to be reutyred
+	var storageArray = [];
+	storageArray.push(node.species.url);
+
+	var evolutionNodes = node.evolves_to;
+
+	//loop through evolition array and call funciton recursively
+	for (var i = 0; i < evolutionNodes.length; i++) {
+		storageArray = storageArray.concat(getAllEvolutions(evolutionNodes[i]));
+	}
+
+	return storageArray;
+}
+
 
 function getPokemonIds(urlArray) {
 	// return urlArray.map(function splitAtSlash() {

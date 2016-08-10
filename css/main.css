@@ -35,7 +35,7 @@ a {
 }
 
 .side-nav {
-	max-width: 250px;
+	/*max-width: 250px;*/
 	background-color: #91061E;
 	color: #FFFFFF;
 	flex-grow: 1;
@@ -92,6 +92,7 @@ button:hover {
 	padding-top: 8%;
 	display: flex;
 	justify-content: center;
+	flex-wrap: wrap;
 }
 
 /*POKEMON CARD STYLES*/
